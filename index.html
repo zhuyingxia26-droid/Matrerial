@@ -510,6 +510,13 @@ function getMode(){
 }
 function route(){
   const m = getMode();
+  
+  /* 学生本地有记录，就不能进 stage */
+  if (m === 'stage' && localStorage.getItem('duck-my-group')) {
+    location.hash = 'student';
+    return;
+  }
+  
   $('#home').hidden    = m !== 'home';
   $('#stage').hidden   = m !== 'stage';
   $('#student').hidden = m !== 'student';
@@ -529,6 +536,10 @@ function route(){
   render();
 }
 window.addEventListener('hashchange', function(){
+  if (getMode() === 'stage' && localStorage.getItem('duck-my-group')) {
+    location.hash = 'student';
+    return;
+  }
   builtIds = '';
   boxGridOpen = false;
   route();
@@ -1157,6 +1168,12 @@ function render(){
 document.addEventListener('DOMContentLoaded', function(){
   S = loadState();
   route();
+  
+  /* 学生隐藏大屏按钮 */
+  if (localStorage.getItem('duck-my-group')) {
+    const s = document.getElementById('goStage');
+    if (s) s.style.display = 'none';
+  }
 });
 </script>
 </body>
