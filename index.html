@@ -150,6 +150,16 @@ input{font-family:inherit}
 .toast{position:fixed;left:50%;bottom:44px;transform:translateX(-50%);background:rgba(43,52,64,.92);color:#fff;font-size:14px;font-weight:700;padding:12px 22px;border-radius:999px;z-index:200;animation:toastIn .25s;white-space:nowrap;max-width:90vw}
 @keyframes toastIn{from{opacity:0;transform:translate(-50%,10px)}to{opacity:1;transform:translate(-50%,0)}}
 .duck-nickname{font-size:12px;color:#94a3b8;font-weight:700;margin-top:2px;max-width:180px;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;text-align:center}
+.all-groups-panel{margin-top:24px;width:100%;background:rgba(255,255,255,.7);border-radius:20px;padding:16px 14px;box-shadow:0 6px 18px rgba(120,150,190,.14)}
+.all-groups-title{font-size:14px;font-weight:800;color:#7b8794;margin-bottom:10px;letter-spacing:1px}
+.all-groups-list{display:flex;flex-direction:column;gap:8px}
+.all-group-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.85);font-size:14px;font-weight:700}
+.all-group-row.me{background:linear-gradient(135deg,#fff3d6,#ffe9b8);box-shadow:inset 0 0 0 2px #ffc93c}
+.all-group-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#2b3440}
+.all-group-me{font-size:10px;color:#f79b12;font-weight:900;background:#fff;padding:1px 6px;border-radius:6px;margin-left:4px}
+.all-group-beans{font-size:15px;color:#f79b12;font-weight:900;min-width:40px;text-align:right}
+.all-group-bar{width:60px;height:8px;background:#e4ecf4;border-radius:4px;overflow:hidden}
+.all-group-bar-fill{height:100%;background:linear-gradient(90deg,#ffd166,#f79b12);border-radius:4px;transition:width .5s}
 @media(max-width:520px){
 .stage-grid{grid-template-columns:repeat(2,1fr);gap:10px;padding:4px 12px 24px}
 .duck-card{padding:10px 8px 12px}
@@ -265,6 +275,10 @@ input{font-family:inherit}
     </div>
     <div class="my-beans"><span id="myBeans">0</span> / 20 &#x1FAD8;</div>
     <button class="big-btn gray" id="btnDraw" disabled>&#x23F3; 等待老师放粮…</button>
+    <div class="all-groups-panel">
+      <div class="all-groups-title">&#x1F4CA; 全班进度</div>
+      <div class="all-groups-list" id="allGroupsList"></div>
+    </div>
   </div>
   <div id="boxGridScreen" hidden>
     <div class="box-grid-head">
@@ -710,11 +724,13 @@ function renderDuckLobby(){
     btn.disabled = false;
     btn.classList.add('green');
     btn.textContent = '&#x1F381; 抽盲盒！';
-  } else {
+   } else {
     btn.disabled = true;
     btn.classList.add('gray');
     btn.textContent = '&#x23F3; 等待老师放粮…';
   }
+
+  renderAllGroups();
 }
 
 function renderBoxGrid(){
@@ -808,7 +824,24 @@ function renderStudent(){
   lobby.hidden = false;
   renderDuckLobby();
 }
-
+function renderAllGroups(){
+  const list = $('#allGroupsList');
+  if (!list) return;
+  list.innerHTML = '';
+  S.groups.forEach(function(g){
+    const isMe = g.id === myGroupId;
+    const p = Math.min(1, g.beans / MAX_BEANS);
+    const row = document.createElement('div');
+    row.className = 'all-group-row' + (isMe ? ' me' : '');
+    row.innerHTML =
+      '<span class="all-group-name">' + esc(g.groupName) +
+        (isMe ? '<span class="all-group-me">我</span>' : '') +
+      '</span>' +
+      '<div class="all-group-bar"><div class="all-group-bar-fill" style="width:' + (p * 100) + '%"></div></div>' +
+      '<span class="all-group-beans">' + g.beans + ' &#x1FAD8;</span>';
+    list.appendChild(row);
+  });
+}
 $('#btnEnterLobby').onclick = function(){
   const g = currentGroup();
   if (!g) return;
