@@ -345,7 +345,24 @@ input{font-family:inherit}
   </div>
 </section>
 
-<script>
+<script type="module">
+import { initializeApp } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-app.js";
+import { getDatabase, ref, set, onValue } from "https://www.gstatic.com/firebasejs/10.7.0/firebase-database.js";
+
+const firebaseConfig = {
+  apiKey: "AIzaSyBU16VjvVLIA3nNunyQEXAz1q3cBQsa4BA",
+  authDomain: "aaaaaaaa-ac1eb.firebaseapp.com",
+  databaseURL: "https://aaaaaaaa-ac1eb-default-rtdb.firebaseio.com",
+  projectId: "aaaaaaaa-ac1eb",
+  storageBucket: "aaaaaaaa-ac1eb.firebasestorage.app",
+  messagingSenderId: "593187372899",
+  appId: "1:593187372899:web:b0fa29f9b9a65c74d3dd56"
+};
+
+const app = initializeApp(firebaseConfig);
+const db = getDatabase(app);
+const dbRef = ref(db, 'duckClassroom/state');
+
 const $  = (s, r = document) => r.querySelector(s);
 const LS_KEY = 'duck-classroom-v2';
 const COLORS = [
@@ -447,33 +464,26 @@ let bc = null;
 try { bc = new BroadcastChannel('duck-classroom'); } catch (e) {}
 
 function loadState(){
-  try {
-    const raw = localStorage.getItem(LS_KEY);
-    if (raw) {
-      const p = JSON.parse(raw);
-      if (p && Array.isArray(p.groups)) {
-        if (typeof p.initialized === 'undefined') p.initialized = p.groups.length > 0;
-        if (typeof p.groupCount === 'undefined') p.groupCount = p.groups.length || 6;
-        return p;
-      }
-    }
-  } catch (e) {}
   return makeDefaultState();
 }
+
 function saveState(){
-  try { localStorage.setItem(LS_KEY, JSON.stringify(S)); } catch (e) {}
-  try { bc && bc.postMessage({ type: 'sync', state: S }); } catch (e) {}
-  render();
-  route();
+  set(dbRef, S);
 }
-if (bc) {
-  bc.onmessage = function(e){
-    if (e.data && e.data.type === 'sync') { S = e.data.state; render(); route(); }
-  };
-}
-window.addEventListener('storage', function(e){
-  if (e.key === LS_KEY && e.newValue) {
-    try { S = JSON.parse(e.newValue); render(); route(); } catch (err) {}
+
+onValue(dbRef, (snapshot) => {
+  const data = snapshot.val();
+  if (data) {
+    S = data;
+    if (myGroupId && S.groups && !S.groups.find(g => g.id === myGroupId)) {
+      myGroupId = null;
+      boxGridOpen = false;
+    }
+    render();
+    route();
+  } else {
+    S = makeDefaultState();
+    saveState();
   }
 });
 
@@ -499,14 +509,13 @@ function route(){
       $('#stageBoard').hidden = false;
     }
   }
-  if (m === 'student') S = loadState();
+  if (m === 'student' && !S) S = loadState();
   render();
 }
 window.addEventListener('hashchange', function(){
   builtIds = '';
   myGroupId = null;
   boxGridOpen = false;
-  S = loadState();
   route();
 });
 $('#goStage').onclick   = function(){ location.hash = 'stage'; };
@@ -1000,7 +1009,6 @@ $('#btnRefresh').onclick = function(){
   btn.classList.remove('spin');
   void btn.offsetWidth;
   btn.classList.add('spin');
-  S = loadState();
   if (myGroupId) {
     const g = S.groups.find(function(x){ return x.id === myGroupId; });
     if (!g) { myGroupId = null; boxGridOpen = false; }
@@ -1067,8 +1075,10 @@ function render(){
 }
 
 /* ---------- 启动 ---------- */
-S = loadState();
-route();
+document.addEventListener('DOMContentLoaded', function(){
+  S = loadState();
+  route();
+});
 </script>
 </body>
 </html>
