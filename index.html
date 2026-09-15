@@ -222,6 +222,16 @@ input{font-family:inherit}
   .box-cell .result-num{font-size:20px}
   .box-cell .result-icon{font-size:22px}
 }
+.all-groups-panel{margin-top:24px;width:100%;background:rgba(255,255,255,.7);border-radius:20px;padding:16px 14px;box-shadow:0 6px 18px rgba(120,150,190,.14)}
+.all-groups-title{font-size:14px;font-weight:800;color:#7b8794;margin-bottom:10px;letter-spacing:1px}
+.all-groups-list{display:flex;flex-direction:column;gap:8px}
+.all-group-row{display:flex;align-items:center;gap:8px;padding:8px 10px;border-radius:12px;background:rgba(255,255,255,.85);font-size:14px;font-weight:700}
+.all-group-row.me{background:linear-gradient(135deg,#fff3d6,#ffe9b8);box-shadow:inset 0 0 0 2px #ffc93c}
+.all-group-name{flex:1;overflow:hidden;text-overflow:ellipsis;white-space:nowrap;color:#2b3440}
+.all-group-me{font-size:10px;color:#f79b12;font-weight:900;background:#fff;padding:1px 6px;border-radius:6px;margin-left:4px}
+.all-group-beans{font-size:15px;color:#f79b12;font-weight:900;min-width:40px;text-align:right}
+.all-group-bar{width:60px;height:8px;background:#e4ecf4;border-radius:4px;overflow:hidden}
+.all-group-bar-fill{height:100%;background:linear-gradient(90deg,#ffd166,#f79b12);border-radius:4px;transition:width .5s}
 </style>
 </head>
 <body>
@@ -332,6 +342,11 @@ input{font-family:inherit}
     <div class="my-beans"><span id="myBeans">0</span> / 20 &#x1FAD8;</div>
 
     <button class="big-btn gray" id="btnDraw" disabled>&#x23F3; 等待老师放粮…</button>
+
+    <div class="all-groups-panel">
+      <div class="all-groups-title">&#x1F4CA; 全班进度</div>
+      <div class="all-groups-list" id="allGroupsList"></div>
+    </div>
   </div>
 
   <!-- 盲盒格子 -->
@@ -446,14 +461,15 @@ function buildGroups(n, old){
       arr.push(prev);
     } else {
       arr.push({
-        id: 'g' + (i + 1),
-        groupName: '第' + (i + 1) + '组',
-        duckName: '',
-        color: COLORS[i % COLORS.length],
-        beans: 0,
-        authorized: false,
-        entered: false
-      });
+  id: 'g' + (i + 1),
+  groupName: '第' + (i + 1) + '组',
+  duckName: '',
+  color: COLORS[i % COLORS.length],
+  beans: 0,
+  authorized: false,
+  entered: false,
+  lockedBy: null
+});
     }
   }
   return arr;
@@ -514,7 +530,6 @@ function route(){
 }
 window.addEventListener('hashchange', function(){
   builtIds = '';
-  myGroupId = null;
   boxGridOpen = false;
   route();
 });
@@ -680,6 +695,16 @@ function startEditGroupName(cardEl){
 }
 
 /* ---------- 大屏点击 ---------- */
+$('#stageGrid').addEventListener('dblclick', function(e){
+  const card = e.target.closest('.duck-card');
+  if (!card) return;
+  const g = S.groups.find(function(x){ return x.id === card.dataset.id; });
+  if (!g) return;
+  if (!g.lockedBy) { toast('该组未被锁定'); return; }
+  g.lockedBy = null;
+  saveState();
+  toast('已解锁「' + g.groupName + '」，学生可以重新选组');
+});
 $('#stageGrid').addEventListener('click', function(e){
   const editTrigger = e.target.closest('.duck-name, .group-tag');
   if (editTrigger) {
@@ -764,16 +789,28 @@ $('#btnClearBeans').onclick = function(){
   toast('已清空所有豆子');
 };
 $('#btnReSetup').onclick = function(){
-  if (!confirm('确定重新设置小组？当前所有小组数据（含组名）将被清空。')) return;
+  if (!confirm('确定重新设置小组？当前所有小组数据（含组名）将被清空，所有学生需要重新选组。')) return;
   S.initialized = false;
   S.groups = [];
   builtIds = '';
+  localStorage.removeItem('duck-my-group');
+  myGroupId = null;
   saveState();
   route();
 };
 
 /* ---------- 学生端 ---------- */
-let myGroupId = null;
+function getDeviceId(){
+  let id = localStorage.getItem('duck-device-id');
+  if (!id) {
+    id = 'dev-' + Math.random().toString(36).slice(2, 10) + Date.now().toString(36);
+    localStorage.setItem('duck-device-id', id);
+  }
+  return id;
+}
+const MY_DEVICE = getDeviceId();
+
+let myGroupId = localStorage.getItem('duck-my-group') || null;
 let boxGridOpen = false;
 let boxResults = [];
 let boxDeltas = [];
@@ -801,7 +838,25 @@ function renderGroupPicker(){
     b.className = 'group-pick-btn';
     b.innerHTML = '<span class="gp-name">' + esc(g.groupName) + '</span>' +
                   '<span class="gp-meta">' + (g.duckName ? '&#x1F986; ' + esc(g.duckName) + ' · ' : '') + g.beans + ' &#x1FAD8;</span>';
-    b.onclick = function(){ myGroupId = g.id; boxGridOpen = false; render(); };
+    b.onclick = function(){
+  /* 如果已经选过组，不能改选 */
+  if (localStorage.getItem('duck-my-group')) {
+    toast('你已经选过小组了，不能更换');
+    return;
+  }
+  /* 检查该组是否已被其他设备占用 */
+  if (g.lockedBy && g.lockedBy !== MY_DEVICE) {
+    toast('该组已被其他同学占用，请选择其他组');
+    return;
+  }
+  /* 写入设备锁 */
+  g.lockedBy = MY_DEVICE;
+  myGroupId = g.id;
+  localStorage.setItem('duck-my-group', g.id);
+  boxGridOpen = false;
+  saveState();
+  render();
+};
     grid.appendChild(b);
   });
 }
@@ -858,11 +913,31 @@ function renderDuckLobby(){
     btn.disabled = false;
     btn.classList.add('green');
     btn.textContent = '&#x1F381; 抽盲盒！';
-  } else {
+   } else {
     btn.disabled = true;
     btn.classList.add('gray');
     btn.textContent = '&#x23F3; 等待老师放粮…';
   }
+
+  renderAllGroups();
+}
+function renderAllGroups(){
+  const list = $('#allGroupsList');
+  if (!list) return;
+  list.innerHTML = '';
+  S.groups.forEach(function(g){
+    const isMe = g.id === myGroupId;
+    const p = Math.min(1, g.beans / MAX_BEANS);
+    const row = document.createElement('div');
+    row.className = 'all-group-row' + (isMe ? ' me' : '');
+    row.innerHTML =
+      '<span class="all-group-name">' + esc(g.groupName) +
+        (isMe ? '<span class="all-group-me">我</span>' : '') +
+      '</span>' +
+      '<div class="all-group-bar"><div class="all-group-bar-fill" style="width:' + (p * 100) + '%"></div></div>' +
+      '<span class="all-group-beans">' + g.beans + ' &#x1FAD8;</span>';
+    list.appendChild(row);
+  });
 }
 
 /* 盲盒格子 */
@@ -984,8 +1059,12 @@ $('#btnEditDuck').onclick = function(){
   saveState();
 };
 
-$('#btnBack1').onclick = function(){ myGroupId = null; boxGridOpen = false; render(); };
-$('#btnBack2').onclick = function(){ myGroupId = null; boxGridOpen = false; render(); };
+$('#btnBack1').onclick = function(){
+  toast('已锁定小组，不能切换');
+};
+$('#btnBack2').onclick = function(){
+  toast('已锁定小组，不能切换');
+};
 
 $('#btnDraw').onclick = function(){
   const g = currentGroup();
