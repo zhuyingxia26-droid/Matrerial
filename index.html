@@ -833,6 +833,15 @@ function currentGroup(){
 
 /* 选组 */
 function renderGroupPicker(){
+ /* 本地有记录，强制跳回大厅 */
+  if (localStorage.getItem('duck-my-group')) {
+    const saved = localStorage.getItem('duck-my-group');
+    if (S.groups && S.groups.find(function(x){ return x.id === saved; })) {
+      myGroupId = saved;
+      renderStudent();
+      return;
+    }
+  }
   const grid = $('#groupPickGrid');
   const status = $('#gpStatus');
   grid.innerHTML = '';
@@ -1024,7 +1033,20 @@ $('#btnCollectBox').onclick = function(){
 
 /* 学生端渲染 */
 function renderStudent(){
-  const g = currentGroup();
+  let g = currentGroup();
+
+  /* 本地有记录但变量丢了，强制恢复 */
+  if (!g) {
+    const saved = localStorage.getItem('duck-my-group');
+    if (saved && S.groups) {
+      const found = S.groups.find(function(x){ return x.id === saved; });
+      if (found) {
+        myGroupId = saved;
+        g = found;
+      }
+    }
+  }
+
   const picker = $('#groupPicker');
   const setup  = $('#duckSetup');
   const lobby  = $('#duckLobby');
@@ -1165,14 +1187,19 @@ function render(){
 }
 
 /* ---------- 启动 ---------- */
+/* ---------- 启动 ---------- */
 document.addEventListener('DOMContentLoaded', function(){
   S = loadState();
   route();
-  
-  /* 学生隐藏大屏按钮 */
+
+  /* 学生隐藏大屏按钮和换组按钮 */
   if (localStorage.getItem('duck-my-group')) {
-    const s = document.getElementById('goStage');
-    if (s) s.style.display = 'none';
+    const gs = document.getElementById('goStage');
+    if (gs) gs.style.display = 'none';
+    const b1 = document.getElementById('btnBack1');
+    if (b1) b1.style.display = 'none';
+    const b2 = document.getElementById('btnBack2');
+    if (b2) b2.style.display = 'none';
   }
 });
 </script>
