@@ -531,14 +531,12 @@ function route(){
       $('#stageBoard').hidden = false;
     }
   }
-  if (m === 'student') S = loadState();
   render();
 }
 window.addEventListener('hashchange', function(){
   builtIds = '';
   myGroupId = null;
   boxGridOpen = false;
-  S = loadState();
   route();
 });
 $('#goStage').onclick   = function(){ location.hash = 'stage'; };
@@ -1056,11 +1054,6 @@ $('#btnRefresh').onclick = function(){
   btn.classList.remove('spin');
   void btn.offsetWidth;
   btn.classList.add('spin');
-  S = loadState();
-  if (myGroupId) {
-    const g = S.groups.find(function(x){ return x.id === myGroupId; });
-    if (!g) { myGroupId = null; boxGridOpen = false; }
-  }
   render();
   toast('已刷新');
 };
